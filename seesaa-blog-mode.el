@@ -7,7 +7,7 @@
 ;;; こっち側で用意しなければいいのか。
 
 (require 'xml-rpc)
-
+(require 'f)
 (defvar seesaa-blog-id nil)
 (defvar seesaa-blog-email nil)
 (defvar seesaa-blog-password nil)
@@ -19,15 +19,14 @@
 (defvar seesaa-blog-filename-prefix-format "%Y-%m-%d-%H%M%S-")
 (defvar seesaa-blog-tmp-file-path nil)
 
-(defun seesaa-blog-define-key ()
-  "キーバインド設定"
-  (use-local-map seesaa-blog-map)
-  (with-current-buffer (get-buffer seesaa-blog-buffer-name);;; これ違う気がする
-    (save-excursion
-      (define-key seesaa-blog-map (kbd "C-c C-c") 'seesaa-blog-build-html)
-      (define-key seesaa-blog-map (kbd "C-c C-p") 'seesaa-blog-publish))))
+(defvar seesaa-blog-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-c") 'seesaa-blog-build-html)
+    (define-key map (kbd "C-c C-p") 'seesaa-blog-publish)
+    map)
+  "keymap for `seesaa-blog-mode'.")
 
-(defun seesaa-blog-disable-footer ()
+(defun seesaa-blog-disable-org-function ()
   (make-local-variable 'org-export-html-postamble)
   (make-local-variable 'org-export-with-toc)
   (make-local-variable 'org-export-with-section-numbers)
@@ -58,14 +57,24 @@
     (w3m-find-file path)
     (other-window 1)))
 
-(defun seesaa-blog-preview ()
-  "生成されたHTML を preview")
+(defun seesaa-blog-html ()
+  "生成されたHTML を preview"
+  (interactive)
+  (let* ((file (file-name-nondirectory
+                (file-name-sans-extension (buffer-file-name))))
+         (path (concat "/tmp/" file ".html")))
+    (setq seesaa-blog-tmp-file-path path)
+    (save-excursion
+      (beginning-of-buffer)
+      ())
+    (org-export-to-file 'html path nil nil t t)
+    (f-read path 'utf-8)))
 
 (defun seesaa-blog-content-body ()
   "org ファイルからtitle以外の部分を取得する。"
   (save-excursion
     (beginning-of-buffer)
-    ;(forward-line)
+    (forward-line)
     (buffer-substring-no-properties (point) (point-max))))
 
 (defun seesaa-blog-contents ()
@@ -74,7 +83,7 @@
     (with-temp-buffer
       (insert content-org)
       (org-html-export-as-html t t t t)
-      (get-buffer "*Org HTML Export*")
+      (set-buffer (get-buffer "*Org HTML Export*"))
       (buffer-substring-no-properties (point-min) (point-max)))))
 
 (defun seesaa-blog-publish ()
@@ -90,14 +99,18 @@ method は metaWeblog.newPost
 さて。中身はどう取得しようか
 "
   (interactive)
-  (xml-rpc-method-call "http://bloc.seesaa.jp/rpc"
-                       'metaWeblob.newPost
+  (xml-rpc-method-call "http://blog.seesaa.jp/rpc"
+                       "metaWeblog.newPost"
                        seesaa-blog-id
                        seesaa-blog-email
                        seesaa-blog-password
-                       '(("title" . seesaa-blog-title)
-                         ("description" . (seesaa-blog-contents)))
-                       false))
+                       `(("title" . ,seesaa-blog-title)
+                         ("description" . ,(seesaa-blog-html)))
+                       nil))
+
+
+(defun seesaa-blog-get-title ()
+  seesaa-blog-title)
 
 (defun seesaa-blog-new-entry (subject)
   "記事タイトルをつける"
@@ -115,9 +128,10 @@ method は metaWeblog.newPost
 
 (define-minor-mode seesaa-blog-mode
   "Post to Seesaa Blog"
+  :keymap seesaa-blog-map
   :lighter " SeB"
   :global nil
-  )
+  (seesaa-blog-disable-org-function))
 
 
 (provide 'seesaa-blog-mode)
