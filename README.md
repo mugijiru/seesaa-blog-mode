@@ -26,7 +26,7 @@ seesaa-blog-mode.rcp を作る
        :type github
        :features "seesaa-blog-mode"
        :depends (s f org)
-       :pkgname "mugijiru/seesaa-blog-mode)
+       :pkgname "mugijiru/seesaa-blog-mode")
 ```
 
 そして
