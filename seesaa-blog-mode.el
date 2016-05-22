@@ -79,7 +79,7 @@
     (setq seesaa-blog-tmp-file-path path)
     (save-excursion
       (beginning-of-buffer))
-    (org-export-to-file 'html path nil nil t t)
+    (org-export-to-file 'html path nil nil t)
     ;; window を分割
     (split-window-right)
     ;; 分割先に移動
