@@ -1,13 +1,46 @@
-;;; org-mode をメジャーモードにして
-;;; こちらをminor modeにして
-;;; C-M-o とかでこちらを起動して
-;;; org-mode のファイルを作って
-;;; ... って、C-M-o で起動するってのを用意しないといけないか。
-;;; それって minor-mode で出来たっけ。できるよな。
-;;; こっち側で用意しなければいいのか。
+;;; seesaa-blog-mode.el --- Create org file for seesaa blog and Post HTML
+
+;; Author: Mugijiru <mugijiru.dev@gmail.com>
+;; URL: https://github.com/mugijiru/seesaa-blog-mode
+;; Version: 0.0.1
+;; Keywords: seesaa blog org-mode
+
+;; Copyright (c) 2016 Mugijiru
+;;
+;; MIT License
+;;
+;; Permission is hereby granted, free of charge, to any person obtaining
+;; a copy of this software and associated documentation files (the
+;; "Software"), to deal in the Software without restriction, including
+;; without limitation the rights to use, copy, modify, merge, publish,
+;; distribute, sublicense, and/or sell copies of the Software, and to
+;; permit persons to whom the Software is furnished to do so, subject to
+;; the following conditions:
+;;
+;; The above copyright notice and this permission notice shall be
+;; included in all copies or substantial portions of the Software.
+;;
+;; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+;; EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+;; MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+;; NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+;; LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+;; OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+;; WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+;;; Commentary:
+
+;; seesaa-blog-mode.el is a tool for seesaa blog.
+;;
+;; This script only support Mac OS X
+;;
+
+;;; Code:
 
 (require 'xml-rpc)
 (require 'f)
+(require 's)
+(require 'org)
 (defvar seesaa-blog-id nil)
 (defvar seesaa-blog-email nil)
 (defvar seesaa-blog-password nil)
@@ -30,16 +63,14 @@
   (make-local-variable 'org-export-html-postamble)
   (make-local-variable 'org-export-with-toc)
   (make-local-variable 'org-export-with-section-numbers)
+  (setq org-html-toplevel-hlevel 4)
   (setq org-export-html-postamble nil)
   (setq org-export-with-toc nil)
   (setq org-export-with-section-numbers nil))
 
-(defun seesaa-blog-build-html ()
-  "HTMLを生成する。
-ファイル名から適当に/tmp/[filename].html を生成する
-かつ preview するといいなあ
 
-関数名に対して色々やりすぎているので後で直そう。
+(defun seesaa-blog-build-html ()
+  "Build HTML for seesaa blog from org file and preview on emacs-w3m.
 "
   (interactive)
   (let* ((file (file-name-nondirectory
@@ -47,8 +78,7 @@
          (path (concat "/tmp/" file ".html")))
     (setq seesaa-blog-tmp-file-path path)
     (save-excursion
-      (beginning-of-buffer)
-      ())
+      (beginning-of-buffer))
     (org-export-to-file 'html path nil nil t t)
     ;; window を分割
     (split-window-right)
@@ -56,6 +86,12 @@
     (other-window 1)
     (w3m-find-file path)
     (other-window 1)))
+
+(defun seesaa-blog-build-html-from-org-string (str)
+  (with-temp-buffer
+    (seesaa-blog-disable-org-function)
+    (insert str)
+    (org-export-as 'html nil t t)))
 
 (defun seesaa-blog-html ()
   "生成されたHTML を preview"
@@ -69,6 +105,17 @@
       ())
     (org-export-to-file 'html path nil nil t t)
     (f-read path 'utf-8)))
+
+(defun seesaa-blog-content-title ()
+  "org ファイルからtitle部分を取得する。"
+  (save-excursion
+    (beginning-of-buffer)
+    (end-of-line)
+    (buffer-substring-no-properties (point-min) (point))))
+
+(defun seesaa-blog-get-title ()
+  (let ((title-org (seesaa-blog-content-title)))
+    (s-replace "#+TITLE: " "" title-org)))
 
 (defun seesaa-blog-content-body ()
   "org ファイルからtitle以外の部分を取得する。"
@@ -87,37 +134,24 @@
       (buffer-substring-no-properties (point-min) (point-max)))))
 
 (defun seesaa-blog-publish ()
-  "preview を隣に表示している状態で publish する
-publish ってどうするの?
-http叩く必要がるかな
-
-XMLRPC を叩く必要がある
-
-叩き先 は blog.seesaa.jp/rpc か
-method は metaWeblog.newPost
-
-さて。中身はどう取得しようか
-"
+  "Build HTML from org file and publish to seesaa blog use seesaa blog metaweblog api."
   (interactive)
   (xml-rpc-method-call "http://blog.seesaa.jp/rpc"
                        "metaWeblog.newPost"
                        seesaa-blog-id
                        seesaa-blog-email
                        seesaa-blog-password
-                       `(("title" . ,seesaa-blog-title)
+                       `(("title" . ,(seesaa-blog-get-title))
                          ("description" . ,(seesaa-blog-html)))
                        nil))
 
 
-(defun seesaa-blog-get-title ()
-  seesaa-blog-title)
-
 (defun seesaa-blog-new-entry (subject)
-  "記事タイトルをつける"
+  "Create new org file for blog entry and enable seesaa-blog-mode."
   (interactive "sタイトル: ")
   (let* ((filename-prefix (format-time-string seesaa-blog-filename-prefix-format (current-time)))
          (filename-suffix ".org")
-         (filename (concat filename-prefix subject filename-suffix))
+         (filename (concat filename-prefix (s-replace " " "_" subject) filename-suffix))
          (filepath (concat (expand-file-name seesaa-blog-entry-dir) "/" filename)))
     (setq seesaa-blog-title subject)
     (make-directory seesaa-blog-entry-dir t)
@@ -133,6 +167,6 @@ method は metaWeblog.newPost
   :global nil
   (seesaa-blog-disable-org-function))
 
-
 (provide 'seesaa-blog-mode)
+
 ;;; seesaa-blog-mode.el ends here
