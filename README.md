@@ -25,7 +25,7 @@ seesaa-blog-mode.rcp を作る
        :description "create seesaa blog entry and publish with org-mode"
        :type github
        :features "seesaa-blog-mode"
-       :depends (s f org-mode)
+       :depends (s f org-mode xml-rpc)
        :pkgname "mugijiru/seesaa-blog-mode")
 ```
 
