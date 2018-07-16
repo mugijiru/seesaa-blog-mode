@@ -103,7 +103,7 @@
     (save-excursion
       (beginning-of-buffer)
       ())
-    (org-export-to-file 'html path nil nil t)
+    (org-export-to-file 'html path nil nil t t)
     (f-read path 'utf-8)))
 
 (defun seesaa-blog-content-title ()
