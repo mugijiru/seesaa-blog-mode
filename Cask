@@ -5,6 +5,7 @@
 
 (depends-on "org")
 (depends-on "xml-rpc")
+(depends-on "htmlize")
 (depends-on "f")
 (depends-on "s")
 
